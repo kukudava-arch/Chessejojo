@@ -1,0 +1,86 @@
+name: Build Stand Chess APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Prepare the web app
+        shell: bash
+        run: |
+          set -e
+
+          # Capacitor needs a package.json. Keep the repository's one if it exists.
+          if [ ! -f package.json ]; then
+            npm init -y
+          fi
+
+          # Install a compatible Capacitor toolchain.
+          npm install @capacitor/core@7 @capacitor/android@7
+          npm install --save-dev @capacitor/cli@7
+
+          # Put the site's files in Capacitor's web directory.
+          mkdir -p www
+          rsync -av ./ www/ \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='node_modules/' \
+            --exclude='android/' \
+            --exclude='www/' \
+            --exclude='package.json' \
+            --exclude='package-lock.json' \
+            --exclude='README*' \
+            --exclude='*.zip'
+
+          # Create the Capacitor config for this plain HTML project.
+          cat > capacitor.config.json <<'EOF'
+          {
+            "appId": "com.nebula.standchess",
+            "appName": "Stand Chess",
+            "webDir": "www"
+          }
+          EOF
+
+      - name: Create Android project
+        shell: bash
+        run: |
+          set -e
+          if [ ! -d android ]; then
+            npx cap add android
+          fi
+          npx cap sync android
+
+      - name: Build debug APK
+        shell: bash
+        run: |
+          set -e
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: stand-chess-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
