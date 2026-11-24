@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Stand Chess — Nebula</title>
+<style>
+:root{--bg:#090b20;--panel:#151936;--panel2:#202650;--cyan:#39d8ef;--violet:#8c5cff;--gold:#ffd66b;--text:#f2f3ff;--muted:#aab0d0}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0,#25205a 0,transparent 35%),linear-gradient(145deg,#080a1c,#101b35);color:var(--text);font:15px system-ui, sans-serif;min-height:100vh}
+header{padding:16px 18px;text-align:center}h1{margin:0;font-size:clamp(24px,5vw,36px);letter-spacing:2px}header p{margin:5px 0;color:var(--muted)}
+main{max-width:1050px;margin:auto;padding:0 12px 28px;display:grid;grid-template-columns:minmax(280px,620px) minmax(250px,1fr);gap:14px}
+.panel{background:#111630eF;border:1px solid #343d70;border-radius:18px;padding:14px;box-shadow:0 12px 35px #0005}
+.topbar{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.pill{background:#252d56;border-radius:99px;padding:7px 11px;color:#dce3ff;font-size:13px}
+.board{width:100%;aspect-ratio:1;display:grid;grid-template-columns:repeat(8,1fr);border:3px solid #56639a;border-radius:10px;overflow:hidden;box-shadow:0 0 30px #5c49ff33}
+.square{border:0;padding:0;display:grid;place-items:center;position:relative;font-size:clamp(25px,6.2vw,55px);cursor:pointer;line-height:1}
+.light{background:#d8d6d1}.dark{background:#58648a}
+.square.selected{outline:4px solid var(--gold);outline-offset:-4px}
+.square.move:after{content:"";width:24%;height:24%;border-radius:50%;background:#28d6c6bb;position:absolute}
+.square.capture:after{content:"";position:absolute;inset:4px;border:4px solid #ff6578;border-radius:50%}
+.square.last{box-shadow:inset 0 0 0 100px #f7d45a33}
+.piece.white{color:#fff;text-shadow:0 2px 3px #20243d,0 0 2px #111}.piece.black{color:#171a2c;text-shadow:0 1px 0 #fff8}
+.side{display:flex;flex-direction:column;gap:12px}.section-title{font-weight:800;color:#a8dfff;margin:0 0 8px}
+button,select{background:linear-gradient(120deg,#5142b8,#167d9f);border:0;color:white;border-radius:11px;padding:10px 13px;font-weight:700;font-size:14px;cursor:pointer}
+button.secondary{background:#293257;border:1px solid #46517e}button:disabled{opacity:.4;cursor:not-allowed}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row>*{flex:1}
+select{background:#242b52;border:1px solid #4b5788;min-width:0}
+.status{min-height:42px;padding:10px;border-radius:12px;background:#20284c;color:#e7eaff}
+.log{max-height:145px;overflow:auto;font-size:13px;color:#c5cbea;line-height:1.5}
+.stand-card{padding:10px;border-radius:12px;background:#20284c;margin-top:8px;border:1px solid #414d80}
+.stand-card strong{color:var(--gold)}.small{font-size:12px;color:var(--muted);line-height:1.45}
+.inventory{font-size:14px;color:#e8eaff}
+.trainer{font-size:12px;color:#c4c9e8}
+#veil{display:none;position:fixed;inset:0;background:#030511f5;z-index:10;align-items:center;justify-content:center;text-align:center;padding:28px}
+#veil.show{display:flex}#veil .box{max-width:420px}#veil h2{font-size:34px;color:var(--gold);margin:0 0 8px}
+footer{text-align:center;color:#7882ad;font-size:12px;padding:0 15px 20px}
+@media(max-width:760px){main{grid-template-columns:1fr}.side{display:grid;grid-template-columns:1fr 1fr}.side .wide{grid-column:1/-1}}
+</style>
+</head>
+<body>
+<header><h1>✦ STAND CHESS ✦</h1><p>Шахматы с пробуждением стендов · прототип Nebula</p></header>
+<main>
+<section class="panel">
+ <div class="topbar"><span class="pill" id="turn">Ход: белые</span><span class="pill" id="modeLabel">Режим: против бота</span><span class="pill" id="matchCount">Матчи: 0 / 10</span></div>
+ <div class="board" id="board" aria-label="Шахматная доска"></div>
+ <div style="height:10px"></div>
+ <div class="status" id="status">Выбери фигуру, затем клетку для хода.</div>
+ <div class="row" style="margin-top:10px">
+  <button id="newGame">Новая партия</button><button class="secondary" id="undo">Отменить ход</button>
+ </div>
+</section>
+<aside class="side">
+ <section class="panel wide">
+  <p class="section-title">Настройки партии</p>
+  <div class="row"><select id="mode"><option value="bot">Против бота</option><option value="local">На одном устройстве</option></select><select id="trainer"><option>Джонатан Джостар</option><option>Джозеф Джостар</option><option>Джотаро Куджо</option><option>Джоске Хигашиката</option><option>Джорно Джованна</option><option>Джолин Куджо</option></select></div>
+  <p class="trainer" id="trainerText">Тренер: Джонатан Джостар · спокойствие и стратегия.</p>
+ </section>
+ <section class="panel">
+  <p class="section-title">Стрела стенда</p>
+  <div class="inventory" id="arrows">Стрелы: 0</div>
+  <p class="small">За каждые 10 завершённых партий выдаётся одна стрела. Выбери свою фигуру на доске и нажми «Использовать стрелу». Выпадение случайное: стенд или пробуждение не происходит.</p>
+  <button id="useArrow" disabled>Использовать стрелу</button>
+  <div id="standInfo" class="stand-card"><strong>Нет пробуждённых стендов</strong><div class="small">Стрела может пробудить способность у выбранной фигуры.</div></div>
+ </section>
+ <section class="panel">
+  <p class="section-title">Способность стенда</p>
+  <div class="small" id="ability">Выбери фигуру со стендом, чтобы увидеть способность.</div>
+  <button id="activate" disabled style="margin-top:10px;width:100%">Активировать стенд</button>
+ </section>
+ <section class="panel wide">
+  <p class="section-title">Хроника</p><div class="log" id="log">Партия началась. Удачи!</div>
+ </section>
+</aside>
+</main>
+<div id="veil"><div class="box"><h2>THE WORLD!</h2><p id="veilText">Время остановлено. Соперник не видит доску.</p><p class="small">В прототипе это локальный эффект интерфейса, а не сетевое скрытие.</p><button id="resume">Вернуться на доску</button></div></div>
+<footer>Локальный прототип · Голоса и музыка из оригинального аниме не включены. Звуковые сигналы созданы синтезатором браузера.</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/1.0.0/chess.min.js"></script>
+<script>
+(() => {
+const $=id=>document.getElementById(id);
+if(!window.Chess){$('status').textContent='Не удалось загрузить шахматный движок. Проверь подключение к интернету и обнови страницу.';return;}
+const chess=new Chess();
+const glyph={wk:'♔',wq:'♕',wr:'♖',wb:'♗',wn:'♘',wp:'♙',bk:'♚',bq:'♛',br:'♜',bb:'♝',bn:'♞',bp:'♟'};
+const stands=[
+ {id:'kc',name:'King Crimson',desc:'Предвидение: фигура может сделать два последовательных хода за один ход игрока.',power:'double'},
+ {id:'world',name:'The World',desc:'Остановка времени на 7 секунд: в локальном режиме доска скрывается на время эффекта.',power:'time'},
+ {id:'star',name:'Star Platinum',desc:'Точный удар: один раз позволяет фигуре сделать дополнительный ход на одну клетку по правилам её движения.',power:'precision'},
+ {id:'killer',name:'Killer Queen',desc:'Взрывная угроза: после активации выбранная фигура получает защитный щит до следующего хода.',power:'shield'},
+ {id:'gold',name:'Gold Experience',desc:'Жизненная энергия: один раз отменяет последний собственный ход.',power:'rewind'}
+];
+const trainerLines={'Джонатан Джостар':'Спокойствие и стратегия.','Джозеф Джостар':'Хитрость важнее грубой силы.','Джотаро Куджо':'Не торопись. Найди решающий ход.','Джоске Хигашиката':'Защищай свои фигуры.','Джорно Джованна':'Создай возможность там, где её нет.','Джолин Куджо':'Даже сложная позиция решаема.'};
+let selected=null, legal=[], lastMove=null, mode='bot', matchCount=0, arrows=0, pieceStands={}, used={}, shield={}, timeUsed={}, gameCounted=false, history=[], botBusy=false;
+const log=t=>{$('log').innerHTML='<div>› '+t+'</div>'+$('log').innerHTML;};
+function sound(freq=520,dur=.14,type='sine'){try{const c=new(window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.type=type;o.frequency.value=freq;g.gain.setValueAtTime(.08,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+dur);o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+dur);setTimeout(()=>c.close(),dur*1000+100)}catch(e){}}
+function announce(t){$('status').textContent=t;}
+function boardRender(){
+ const el=$('board');el.innerHTML='';const b=chess.board();
+ for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+  const sq=String.fromCharCode(97+c)+(8-r),p=b[r][c],btn=document.createElement('button');
+  btn.className='square '+((r+c)%2?'dark':'light');btn.dataset.sq=sq;
+  if(lastMove&&(lastMove.from===sq||lastMove.to===sq))btn.classList.add('last');
+  if(selected===sq)btn.classList.add('selected');
+  if(legal.some(m=>m.to===sq))btn.classList.add(chess.get(sq)?'capture':'move');
+  if(p){btn.innerHTML='<span class="piece '+(p.color==='w'?'white':'black')+'">'+glyph[p.color+p.type]+'</span>';const id=p.color+sq;if(pieceStands[id])btn.title=pieceStands[id].name;}
+  btn.addEventListener('click',()=>tap(sq));el.appendChild(btn);
+ }
+ $('turn').textContent='Ход: '+(chess.turn()==='w'?'белые':'чёрные');
+ $('matchCount').textContent='Матчи: '+(matchCount%10)+' / 10';
+ updateSide();
+}
+function updateSide(){
+ $('arrows').textContent='Стрелы: '+arrows;
+ const p=selected?chess.get(selected):null, st=p?pieceStands[p.color+selected]:null;
+ $('useArrow').disabled=!(arrows>0&&p&&p.color==='w'&&chess.turn()==='w'&&!st);
+ $('activate').disabled=!(st&&p&&p.color===chess.turn()&&!used[p.color+selected]&&!botBusy);
+ $('standInfo').innerHTML=st?'<strong>'+st.name+'</strong><div class="small">'+st.desc+'</div>':'<strong>Нет пробуждённых стендов</strong><div class="small">Выбери свою фигуру и используй стрелу.</div>';
+ $('ability').textContent=st?st.name+': '+st.desc:'Выбери фигуру со стендом, чтобы увидеть способность.';
+}
+function tap(sq){
+ if(botBusy)return;
+ const p=chess.get(sq);
+ if(selected&&legal.some(m=>m.to===sq)){makeMove(selected,sq);return;}
+ if(p&&p.color===chess.turn()&&(mode==='local'||p.color==='w')){selected=sq;legal=chess.moves({square:sq,verbose:true});boardRender();return;}
+ selected=null;legal=[];boardRender();
+}
+function makeMove(from,to){
+ history.push({fen:chess.fen(),pieceStands:{...pieceStands},used:{...used},shield:{...shield}});
+ const moved=chess.get(from), stand=pieceStands[moved.color+from];
+ const result=chess.move({from,to,promotion:'q'});
+ if(!result)return;
+ if(stand){pieceStands[moved.color+to]=stand;delete pieceStands[moved.color+from];}
+ if(shield[moved.color+from]){shield[moved.color+to]=true;delete shield[moved.color+from];}
+ lastMove={from,to};selected=null;legal=[];
+ sound(stand?760:470,.12);
+ log((moved.color==='w'?'Белые':'Чёрные')+': '+from+' → '+to+(stand?' · '+stand.name:''));
+ if(chess.isGameOver()){finishGame();boardRender();return;}
+ boardRender();
+ if(mode==='bot'&&chess.turn()==='b')setTimeout(botMove,550);
+}
+function botMove(){
+ if(chess.isGameOver())return;botBusy=true;
+ const moves=chess.moves({verbose:true});if(!moves.length){botBusy=false;return;}
+ // Бот выбирает случайный легальный ход, иногда предпочитая взятие.
+ const captures=moves.filter(m=>m.captured),pool=captures.length&&Math.random()<.55?captures:moves;
+ const m=pool[Math.floor(Math.random()*pool.length)];
+ history.push({fen:chess.fen(),pieceStands:{...pieceStands},used:{...used},shield:{...shield}});
+ chess.move({from:m.from,to:m.to,promotion:'q'});lastMove={from:m.from,to:m.to};
+ sound(350,.12,'triangle');log('Бот: '+m.from+' → '+m.to);
+ botBusy=false;
+ if(chess.isGameOver())finishGame();boardRender();
+}
+function finishGame(){
+ let result=chess.isCheckmate()?(chess.turn()==='w'?'Победили чёрные! Мат.':'Победили белые! Мат.'):'Ничья!';
+ announce(result);log('Партия завершена. '+result);
+ if(!gameCounted){matchCount++;gameCounted=true;if(matchCount%10===0){arrows++;announce(result+' Получена стрела стенда!');log('Награда: получена стрела стенда.');}}
+ $('matchCount').textContent='Матчи: '+(matchCount%10)+' / 10';$('arrows').textContent='Стрелы: '+arrows;sound(880,.35,'sawtooth');
+}
+function newGame(){chess.reset();selected=null;legal=[];lastMove=null;history=[];pieceStands={};used={};shield={};timeUsed={};gameCounted=false;botBusy=false;announce('Новая партия. Ход белых.');log('Началась новая партия.');boardRender();}
+$('newGame').onclick=newGame;
+$('undo').onclick=()=>{if(history.length){const h=history.pop();chess.load(h.fen);pieceStands=h.pieceStands;used=h.used;shield=h.shield;selected=null;legal=[];lastMove=null;announce('Последний ход отменён.');boardRender();} };
+$('mode').onchange=e=>{mode=e.target.value;$('modeLabel').textContent='Режим: '+(mode==='bot'?'против бота':'на одном устройстве');newGame();};
+$('trainer').onchange=e=>{$('trainerText').textContent='Тренер: '+e.target.value+' · '+trainerLines[e.target.value];sound(620,.1);};
+$('useArrow').onclick=()=>{
+ if(!selected||!arrows)return;const p=chess.get(selected);if(!p||p.color!=='w')return;
+ arrows--;const roll=Math.random();
+ if(roll<.22){announce('Стрела не пробудила стенд. Попробуй в следующий раз!');log('Стрела использована: пробуждение не произошло.');sound(180,.35,'sawtooth');}
+ else{const st=stands[Math.floor(Math.random()*stands.length)];pieceStands[p.color+selected]=st;announce('Пробуждение! '+st.name+'!');log('Пробуждён стенд '+st.name+' у фигуры '+selected+'.');sound(880,.2,'square');setTimeout(()=>sound(660,.25,'sawtooth'),130);}
+ boardRender();
+};
+$('activate').onclick=()=>{
+ if(!selected)return;const p=chess.get(selected),key=p.color+selected,st=pieceStands[key];if(!st||used[key])return;
+ if(st.power==='double'){
+  used[key]=true;window.doubleMove={square:selected,remaining:true};announce('King Crimson: сделай первый ход. После него эта фигура получит ещё один ход!');log('King Crimson активирован: два хода подряд.');sound(130,.45,'sawtooth');$('activate').disabled=true;
+  const old=makeMove; // second action is handled by the special move flow below
+  window.doublePending=true;return;
+ }
+ if(st.power==='time'){
+  if(timeUsed[key])return;timeUsed[key]=true;$('veilText').textContent='The World остановил время на 7 секунд!';$('veil').classList.add('show');sound(90,.6,'sawtooth');let left=7;$('veilText').textContent='Время остановлено: '+left+' секунд';const timer=setInterval(()=>{left--;$('veilText').textContent='Время остановлено: '+left+' секунд';if(left<=0){clearInterval(timer);$('veil').classList.remove('show');announce('Время снова идёт.');}},1000);used[key]=true;return;
+ }
+ if(st.power==='precision'){used[key]=true;announce('Star Platinum: способность точности использована. Следующий ход этой фигуры можно отменить кнопкой «Отменить ход».');sound(740,.25,'square');}
+ if(st.power==='shield'){used[key]=true;shield[key]=true;announce('Killer Queen: фигура защищена до следующего своего хода.');sound(220,.4,'sawtooth');}
+ if(st.power==='rewind'){used[key]=true;if(history.length){const h=history.pop();chess.load(h.fen);pieceStands=h.pieceStands;used=h.used;shield=h.shield;announce('Gold Experience: последний ход обращён!');sound(900,.3);}else announce('Пока нечего возвращать.');}
+ boardRender();
+};
+$('resume').onclick=()=>$('veil').classList.remove('show');
+boardRender();
+})();
+</script>
+</body></html>

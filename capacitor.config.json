@@ -1,0 +1,6 @@
+{
+  "appId": "com.nebula.standchess",
+  "appName": "Stand Chess",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}
